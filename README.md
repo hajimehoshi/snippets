@@ -30,5 +30,5 @@ gcloud beta emulators datastore start --host-port=:8000
 ## Run this app with `bo run`
 
 ```shell
-DATASTORE_EMULATOR_HOST=localhost:8000 GCLOUD_DATASET_ID=natto-umeboshi-20170912 go run datastore.go
+DATASTORE_EMULATOR_HOST=localhost:8000 GCLOUD_DATASET_ID=your-project-name go run datastore.go
 ```
