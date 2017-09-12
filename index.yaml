@@ -1,0 +1,5 @@
+indexes:
+
+- kind: Snippet
+  properties:
+  - name: Digest
