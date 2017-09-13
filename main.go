@@ -16,6 +16,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -109,7 +110,8 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyName := fmt.Sprintf("%x", sha256.Sum256(content))
+	h := sha256.Sum256(content)
+	keyName := base64.RawURLEncoding.EncodeToString(h[:])
 	key := datastore.NameKey(kindName, keyName, nil)
 
 	created := false
