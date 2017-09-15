@@ -90,6 +90,11 @@ func getSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 }
 
 func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+
 	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		msg := fmt.Sprintf("Could not read the request body: %v", err)
