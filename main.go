@@ -16,7 +16,6 @@ package storage
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -108,8 +107,8 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h := sha256.Sum256(content)
-	keyName := base64.RawURLEncoding.EncodeToString(h[:])
+	// Just use characters in [0-9a-f] for IDs so that they can be in subdomain.
+	keyName := fmt.Sprintf("%x", sha256.Sum256(content))
 	key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
 
 	created := false
