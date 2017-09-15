@@ -74,7 +74,11 @@ func getSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Cache-Control", "public, max-age=31536000")
+
+		// While the data is immutable, the data might be deleted for security reason,
+		// so do not cache on proxies (private).
+		// By the same reason, set cache's life time not too long time (max-age = 1 day).
+		w.Header().Set("Cache-Control", "private, max-age=86400")
 		w.Write(s.Content)
 		return
 	}
