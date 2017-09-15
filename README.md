@@ -2,33 +2,10 @@
 
 ## Install Cloud SDK
 
-See https://cloud.google.com/appengine/docs/flexible/go/quickstart
+See https://cloud.google.com/appengine/docs/standard/go/quickstart
 
-## Prepare app.yaml
-
-```yaml
-runtime: go
-env: flex
-
-automatic_scaling:
-  min_num_instances: 1
-
-#[START env_variables]
-env_variables:
-  GCLOUD_DATASET_ID: your-project-name
-#[END env_variables]
-```
-
-## Run Datastore Emulator
-
-See https://cloud.google.com/datastore/docs/tools/datastore-emulator
+## Run this app
 
 ```shell
-gcloud beta emulators datastore start --host-port=:8000
-```
-
-## Run this app with `go run`
-
-```shell
-DATASTORE_EMULATOR_HOST=localhost:8000 GCLOUD_DATASET_ID=your-project-name go run datastore.go
+dev_appserver.py app.yam
 ```

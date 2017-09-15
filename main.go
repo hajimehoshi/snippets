@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package storage
 
 import (
 	"crypto/sha256"
@@ -20,19 +20,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"cloud.google.com/go/datastore"
-	"golang.org/x/net/context"
+	"golang.org/x/net/context" // Use this until Go 1.9's type alias is available
 	"google.golang.org/appengine"
-)
-
-var (
-	datastoreClient *datastore.Client
-	developmentMode = false
+	"google.golang.org/appengine/datastore"
 )
 
 const (
@@ -69,9 +62,9 @@ type Snippet struct {
 func getSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if len(r.URL.Path) > 1 {
 		keyName := r.URL.Path[1:]
-		key := datastore.NameKey(kindName, keyName, nil)
+		key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
 		s := &Snippet{}
-		if err := datastoreClient.Get(ctx, key, s); err != nil {
+		if err := datastore.Get(ctx, key, s); err != nil {
 			if err == datastore.ErrNoSuchEntity {
 				http.NotFound(w, r)
 				return
@@ -87,7 +80,7 @@ func getSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if developmentMode {
+	if appengine.IsDevAppServer() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.Write([]uint8(testForm))
 		return
@@ -112,13 +105,13 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 
 	h := sha256.Sum256(content)
 	keyName := base64.RawURLEncoding.EncodeToString(h[:])
-	key := datastore.NameKey(kindName, keyName, nil)
+	key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
 
 	created := false
-	if _, err := datastoreClient.RunInTransaction(ctx, func(tx *datastore.Transaction) error {
+	if err := datastore.RunInTransaction(ctx, func(ctx context.Context) error {
 		// Search existing one
 		s := &Snippet{}
-		err := datastoreClient.Get(ctx, key, s)
+		err := datastore.Get(ctx, key, s)
 		if err == nil {
 			return nil
 		}
@@ -130,14 +123,14 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 			CreatedAt: time.Now(),
 			Content:   content,
 		}
-		k := datastore.NameKey(kindName, keyName, nil)
-		key, err = datastoreClient.Put(ctx, k, s)
+		k := datastore.NewKey(ctx, kindName, keyName, 0, nil)
+		key, err = datastore.Put(ctx, k, s)
 		if err != nil {
 			return err
 		}
 		created = true
 		return nil
-	}); err != nil {
+	}, nil); err != nil {
 		msg := fmt.Sprintf("Could not store the request body: %v", err)
 		http.Error(w, msg, http.StatusBadRequest)
 		return
@@ -154,7 +147,7 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 func handleSnippets(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	ctx := context.Background()
+	ctx := appengine.NewContext(r)
 	switch r.Method {
 	case http.MethodGet:
 		getSnippets(ctx, w, r)
@@ -166,23 +159,6 @@ func handleSnippets(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
-	ctx := context.Background()
-
-	projectID := os.Getenv("GCLOUD_DATASET_ID")
-
-	var err error
-	datastoreClient, err = datastore.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// TODO: It looks like appengine.IsDevAppServer() always returns false.
-	// Is there a better way?
-	if os.Getenv("DATASTORE_EMULATOR_HOST") != "" {
-		developmentMode = true
-	}
-
-	http.HandleFunc("/", handleSnippets)
-	appengine.Main()
+func init() {
+        http.HandleFunc("/", handleSnippets)
 }
