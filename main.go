@@ -157,7 +157,7 @@ func handleSnippets(w http.ResponseWriter, r *http.Request) {
 
 	ctx := appengine.NewContext(r)
 	switch r.Method {
-	case http.MethodGet:
+	case http.MethodHead, http.MethodGet:
 		getSnippets(ctx, w, r)
 	case http.MethodPost:
 		postSnippets(ctx, w, r)
