@@ -25,6 +25,7 @@ import (
 	"golang.org/x/net/context" // Use this until Go 1.9's type alias is available
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/memcache"
 )
 
 const (
@@ -58,18 +59,45 @@ type Snippet struct {
 	Content   []uint8
 }
 
+func getSnippetFromKey(ctx context.Context, keyName string) (*Snippet, error) {
+	s := &Snippet{}
+	if _, err := memcache.Gob.Get(ctx, keyName, s); err == nil {
+		return s, nil
+	} else if err != memcache.ErrCacheMiss {
+		return nil, err
+	}
+
+	key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
+	if err := datastore.Get(ctx, key, s); err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	item := &memcache.Item{
+		Key:    keyName,
+		Object: s,
+	}
+	if err := memcache.Gob.Set(ctx, item); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
 func getSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	if len(r.URL.Path) > 1 {
 		keyName := r.URL.Path[1:]
-		key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
-		s := &Snippet{}
-		if err := datastore.Get(ctx, key, s); err != nil {
-			if err == datastore.ErrNoSuchEntity {
-				http.NotFound(w, r)
-				return
-			}
+
+		s, err := getSnippetFromKey(ctx, keyName)
+		if err != nil {
 			msg := fmt.Sprintf("Could not retrieve data: %v", err)
 			http.Error(w, msg, http.StatusInternalServerError)
+			return
+		}
+		if s == nil {
+			http.NotFound(w, r)
 			return
 		}
 
@@ -116,9 +144,9 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	key := datastore.NewKey(ctx, kindName, keyName, 0, nil)
 
 	created := false
+	s := &Snippet{}
 	if err := datastore.RunInTransaction(ctx, func(ctx context.Context) error {
 		// Search existing one
-		s := &Snippet{}
 		err := datastore.Get(ctx, key, s)
 		if err == nil {
 			return nil
@@ -145,6 +173,15 @@ func postSnippets(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	}
 
 	if created {
+		if err := memcache.Gob.Set(ctx, &memcache.Item{
+			Key:    keyName,
+			Object: s,
+		}); err != nil {
+			msg := fmt.Sprintf("Could not store the request body: %v", err)
+			http.Error(w, msg, http.StatusBadRequest)
+			return
+		}
+
 		w.WriteHeader(http.StatusCreated)
 	} else {
 		w.WriteHeader(http.StatusOK)
@@ -168,5 +205,5 @@ func handleSnippets(w http.ResponseWriter, r *http.Request) {
 }
 
 func init() {
-        http.HandleFunc("/", handleSnippets)
+	http.HandleFunc("/", handleSnippets)
 }
