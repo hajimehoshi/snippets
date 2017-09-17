@@ -56,7 +56,7 @@ window.addEventListener('load', _ => {
 
 type Snippet struct {
 	CreatedAt time.Time
-	Content   []uint8
+	Content   []uint8   `datastore:",noindex"`
 }
 
 func getSnippetFromKey(ctx context.Context, keyName string) (*Snippet, error) {
